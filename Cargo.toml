@@ -3,6 +3,10 @@ name = "gcrs"
 version = "0.1.0"
 edition = "2021"
 
+description = "(Nix) Garbage Collection Root Supervisor"
+authors = ["Maciej Wojno <gcrs@mwojno.me>"]
+repository = "https://github.com/waciejm/gcrs/"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,4 +14,4 @@ camino = "1.1.4"
 clap = { version = "4.1.13", features = ["derive"] }
 color-eyre = "0.6.2"
 eyre = "0.6.8"
-nix = { version = "0.26.2", features = ["fs", "user"] }
+nix = "0.26.2"
