@@ -23,7 +23,7 @@ impl GCRoot {
     /// fits the naming scheme of a profile generation, None otherwise.
     pub fn get_profile_path(&self) -> Option<&str> {
         self.get_profile_gen()
-            .map(|_| self.path.as_str().rsplitn(3, '-').skip(2).next().unwrap())
+            .map(|_| self.path.as_str().rsplitn(3, '-').nth(2).unwrap())
     }
 
     /// Returns Some(generation number) of this profile generation if this gcroot file
@@ -111,7 +111,7 @@ impl GCRoots {
             .args(["--gc", "--print-roots"])
             .output()?;
         let gcroots = Self::parse_nix_store_gc_output(output)?;
-        Ok(Self::group_gcroots(gcroots)?)
+        Self::group_gcroots(gcroots)
     }
 
     fn parse_nix_store_gc_output(output: Output) -> Result<Vec<GCRoot>> {
@@ -138,7 +138,7 @@ impl GCRoots {
             .rsplit_once(" -> ")
             .expect("\"nix-store --gc --print-roots\" line containing \" -> \"");
 
-        if !path.starts_with("/proc") && !(path.starts_with('{') && path.ends_with('}')) {
+        if !(path.starts_with("/proc") || path.starts_with('{') && path.ends_with('}')) {
             Some(GCRoot {
                 path: Utf8PathBuf::from(path).into(),
                 target: Utf8PathBuf::from(target).into(),
@@ -184,7 +184,7 @@ impl GCRoots {
         if Self::can_read_file(profile_path) {
             let link = profile_path.read_link_utf8()?;
             let Some(name) = link.file_name() else { return Ok(None) };
-            let Some(generation) = name.rsplitn(3, '-').skip(1).next() else { return Ok(None) };
+            let Some(generation) = name.rsplit('-').nth(1) else { return Ok(None) };
             Ok(generation.parse().ok())
         } else {
             Ok(None)
@@ -211,7 +211,7 @@ impl GCRoots {
                         .map(|generation| (profile, generation))
                 });
             if let Some((profile, generation)) = search {
-                profile.generations.insert(generation, gcroot.into());
+                profile.generations.insert(generation, gcroot);
             } else {
                 standalone.push(gcroot);
             };
@@ -232,7 +232,7 @@ impl Display for GCRoots {
                 write!(f, "{}", profile)?;
             }
         }
-        if self.standalone.len() > 0 {
+        if !self.standalone.is_empty() {
             write!(f, "\n\n")?;
         }
         for (index, standalone) in self.standalone.iter().enumerate() {
