@@ -9,5 +9,9 @@ pub struct Args {
 
 #[derive(Subcommand)]
 pub enum Command {
-    Print,
+    /// Print garbage collection roots
+    Print {
+        #[arg(short, long)]
+        plain: bool,
+    },
 }

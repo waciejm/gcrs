@@ -222,6 +222,36 @@ impl GCRoots {
 
 impl Display for GCRoots {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match f.alternate() {
+            true => Self::fmt_alternate(self, f),
+            false => Self::fmt_plain(self, f),
+        }
+    }
+}
+
+impl GCRoots {
+    fn fmt_plain(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut written = false;
+        for profile in self.profiles.iter() {
+            for generation in profile.generations.values() {
+                if written {
+                    writeln!(f)?;
+                }
+                write!(f, "{}", generation)?;
+                written = true;
+            }
+        }
+        for gcroot in self.standalone.iter() {
+            if written {
+                writeln!(f)?;
+            }
+            write!(f, "{}", gcroot)?;
+            written = true;
+        }
+        Ok(())
+    }
+
+    fn fmt_alternate(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (index, profile) in self.profiles.iter().enumerate() {
             if index != 0 {
                 writeln!(f)?;
