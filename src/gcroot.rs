@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    fmt::Display,
     process::{Command, Output},
     rc::Rc,
 };
@@ -8,13 +9,13 @@ use camino::{Utf8Path, Utf8PathBuf};
 use eyre::{eyre, Result};
 use nix::unistd::AccessFlags;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// A Nix Garbage Collection Root.
 pub struct GCRoot {
     /// Location of the symlink.
     pub path: Rc<Utf8Path>,
     /// Where the symlink points to.
-    pub target: Utf8PathBuf,
+    pub target: Rc<Utf8Path>,
 }
 
 impl GCRoot {
@@ -57,6 +58,12 @@ impl GCRoot {
     }
 }
 
+impl Display for GCRoot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} -> {}", self.path, self.target)
+    }
+}
+
 #[derive(Debug)]
 /// A Nix profile with its generations.
 pub struct Profile {
@@ -66,6 +73,27 @@ pub struct Profile {
     /// None if we don't know the active generation e.g. couldn't read the symlink.
     pub active_generation: Option<u64>,
     pub generations: BTreeMap<u64, GCRoot>,
+}
+
+impl Display for Profile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path)?;
+        let digits = 1 + self
+            .generations
+            .keys()
+            .max()
+            .and_then(|m| m.checked_ilog10())
+            .unwrap_or(0) as usize;
+        for (id, generation) in self.generations.iter().rev() {
+            writeln!(f)?;
+            if self.active_generation == Some(*id) {
+                write!(f, "> {: >digits$} -> {}", id, generation.target)?;
+            } else {
+                write!(f, "  {: >digits$} -> {}", id, generation.target)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -113,7 +141,7 @@ impl GCRoots {
         if !path.starts_with("/proc") && !(path.starts_with('{') && path.ends_with('}')) {
             Some(GCRoot {
                 path: Utf8PathBuf::from(path).into(),
-                target: target.into(),
+                target: Utf8PathBuf::from(target).into(),
             })
         } else {
             None
@@ -122,7 +150,8 @@ impl GCRoots {
 
     fn group_gcroots(gcroots: Vec<GCRoot>) -> Result<Self> {
         let mut profiles = Self::create_profiles(&gcroots)?;
-        let standalone = Self::populate_profiles(gcroots, &mut profiles);
+        let mut standalone = Self::populate_profiles(gcroots, &mut profiles);
+        standalone.sort_unstable();
         Ok(GCRoots {
             profiles,
             standalone,
@@ -147,6 +176,7 @@ impl GCRoots {
                 generations: BTreeMap::new(),
             })
         }
+        profiles.sort_unstable_by(|p1, p2| p1.path.cmp(&p2.path));
         Ok(profiles)
     }
 
@@ -187,5 +217,30 @@ impl GCRoots {
             };
         });
         standalone
+    }
+}
+
+impl Display for GCRoots {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (index, profile) in self.profiles.iter().enumerate() {
+            if index != 0 {
+                writeln!(f)?;
+            }
+            if index + 1 < self.profiles.len() {
+                writeln!(f, "{}", profile)?;
+            } else {
+                write!(f, "{}", profile)?;
+            }
+        }
+        if self.standalone.len() > 0 {
+            write!(f, "\n\n")?;
+        }
+        for (index, standalone) in self.standalone.iter().enumerate() {
+            if index != 0 {
+                writeln!(f)?;
+            }
+            write!(f, "{}", standalone)?;
+        }
+        Ok(())
     }
 }
