@@ -1,5 +1,13 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[command(author, version, about)]
-pub struct Args {}
+pub struct Args {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    Print,
+}
