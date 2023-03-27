@@ -1,13 +1,9 @@
-use crate::gcroot::GCRoots;
+use gcrs::gcroot::GCRoots;
 
-use eyre::Result;
-
-pub mod gcroot;
-
-fn main() -> Result<()> {
+fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
-    println!("{:#?}", GCRoots::from_nix_store_command().unwrap());
+    println!("{:#?}", GCRoots::from_nix_store_command()?);
 
     Ok(())
 }
